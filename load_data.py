@@ -42,11 +42,11 @@ def launch(args):
     df = pd.read_csv(csv_path)
     list_folders = list(df.folder)
 
-    if args.data_path is None:
+    if args.data_folder is None:
         master_folder = os.path.join(os.path.split(args.rawdata_folder)[0],"data")
         os.makedirs(master_folder)
     else:
-        master_folder = args.data_path
+        master_folder = args.data_folder
 
     mask_one_hot = False
     only_burnt = True
@@ -68,7 +68,7 @@ def launch(args):
 
     test_dataset = SatelliteDataset(master_folder, mask_intervals, mask_one_hot, height,
                                     width, product_list, mode, filter_validity_mask,
-                                    test_transform, process_dict, csv_path, test_set=list_folders,
+                                    test_transform, process_dict, csv_path, folder_list=list_folders,
                                     ignore_list=None, mask_filtering=mask_filtering, only_burnt=only_burnt,
                                     mask_postfix='mask')
 
@@ -78,7 +78,7 @@ def launch(args):
 
     test_loader = DataLoader(test_dataset, batch_size=batch_size, sampler=test_sampler, drop_last=False)
 
-    return test_loader
+    return test_dataset, test_loader
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -92,4 +92,5 @@ if __name__ == '__main__':
                         help="batch size for the test dataloader")
 
     args = parser.parse_args()
-    test_loader = launch(args)
+    test_dataset, test_loader = launch(args)
+    print("done")
