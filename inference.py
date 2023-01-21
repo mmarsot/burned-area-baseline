@@ -5,34 +5,19 @@ import torch
 import numpy as np
 import pandas as pd
 import argparse
-from torch.optim import lr_scheduler
-from torchvision import transforms
-import json
-from torch import nn, optim
 from torch.utils.data.dataloader import DataLoader
-from torchvision import transforms
 from neural_net.dataset import SatelliteDataset
-from neural_net.image_processor import ProductProcessor
-from neural_net.transform import *
 from neural_net.index_functions import *
 from neural_net.sampler import ShuffleSampler
-from neural_net.stopping import EarlyStopping
-from neural_net.utils import compute_prec_recall_f1_acc, compute_squared_errors, initialize_weight
-from pickle import dump
-from sklearn.metrics import confusion_matrix
-from collections import OrderedDict, defaultdict
-from neural_net import ProductProcessor
 from neural_net.unet import UNet
-from neural_net.cross_validator import CrossValidator
 from neural_net.transform import *
-from neural_net.loss import *
 from neural_net.performance_storage import *
 from neural_net.utils import set_seed
-from neural_net.index_functions import nbr
 from collections import OrderedDict
 from pathlib import Path
 from visualize import visualize,normalize
 import cv2
+from load_data import find_imagefolder
 def main(args):
     seed = 47
     set_seed(seed)
@@ -56,12 +41,14 @@ def main(args):
     print('cudnn backend %s' % str(torch.backends.cudnn.version()))
 
     
-    base_result_path = Path('C:\\Users\\mathi\\Documents\\Hackatech\\logs')
+    base_result_path = Path(args.results_path)
     if not base_result_path.is_dir():
         base_result_path.mkdir(parents=True)
     fold_definition = Path('C:\\Users\\mathi\\Documents\\Hackatech\\burned-area-baseline\\satellite_data.csv')
+    fold_definition = os.path.join(args.data_path, "satellite_data.csv")
 
-    master_folder = Path('C:\\Users\\mathi\\Documents\\Hackatech\\Satellite_burned_area_dataset')
+    #master_folder = Path('C:\\Users\\mathi\\Documents\\Hackatech\\Satellite_burned_area_dataset')
+    master_folder = args.data_path
     csv_path = fold_definition
     n_classes = 2 #len(mask_intervals)
     mask_one_hot = False
@@ -115,10 +102,18 @@ def main(args):
     model_class = UNet
     model_args = {'n_classes': 2, 'n_channels': n_channels, 'act': 'relu'}
     model = model_class(**model_args)
-    device="cuda"
-    model.load_state_dict(torch.load(args.model_weights))
+    #device = "cuda"
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.load_state_dict(torch.load(args.model_weights, map_location=device))
     print("model has been loaded")
-    validation_set = groups['purple']
+
+    if args.file_path is None:
+        validation_set = groups['purple']
+    else:
+        file_path = args.file_path
+        validation_set = find_imagefolder(file_path, args.data_path)
+
+
     dataset = SatelliteDataset(master_folder, mask_intervals, mask_one_hot, height, width, product_list, mode, filter_validity_mask, transform, process_dict, csv_path, validation_set, ignore_list, mask_filtering, only_burnt, mask_postfix=mask_postfix)
     model.to(device)
    
@@ -162,7 +157,11 @@ def main(args):
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_weights",default="C:\\Users\\mathi\\Documents\\Hackatech\\binary_unet_dice_loss\\magenta_model.pt")
+    parser.add_argument("--model_weights",default="../binary_unet_dice_loss/magenta_model.pt")
+    parser.add_argument("-data_path", type=str, default="../data", required=False,
+                        help="Path for the folder containing the processed data folder")
+    parser.add_argument("-results_path", default="../logs", required=False)
+    parser.add_argument("-file_path", default="sentinel2_2017-07-04.png", required=False)
     args = parser.parse_args()
     
     

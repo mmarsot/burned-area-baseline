@@ -32,7 +32,22 @@ def preprocess_zipfiles(rawdata_folder):
     csv_path = os.path.join(data_folder, 'satellite_data.csv')
     return csv_path
 
-def launch(args):
+def find_imagefolder(file_path, data_path):
+    csv_path = os.path.join(data_path, 'satellite_data.csv')
+    df = pd.read_csv(csv_path)
+    def mapping_function(x):
+        files = os.listdir(os.path.join(data_path, x))
+        png_files = [e for e in files if e.lower().endswith('.png')]
+        return png_files
+
+    df["images_list"] = df.folder.map(lambda x: mapping_function(x))
+    df["find_file"] = df.images_list.map(lambda x: file_path in x)
+    folder = [df[df["find_file"] == True].folder.iloc[0]]
+
+    return folder
+
+
+def launch(args, folder=None):
     if args.data_folder is not None:
         data_folder = args.data_folder
         csv_path = os.path.join(data_folder, 'satellite_data.csv')
@@ -66,6 +81,8 @@ def launch(args):
         Normalize((0.5,) * n_channels, (0.5,) * n_channels)
     ])
 
+    if folder is not None:
+        list_folders = folder
     test_dataset = SatelliteDataset(master_folder, mask_intervals, mask_one_hot, height,
                                     width, product_list, mode, filter_validity_mask,
                                     test_transform, process_dict, csv_path, folder_list=list_folders,
@@ -80,6 +97,8 @@ def launch(args):
 
     return test_dataset, test_loader
 
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
@@ -91,6 +110,26 @@ if __name__ == '__main__':
     parser.add_argument("-batch_size", type=int, default=8, required=False,
                         help="batch size for the test dataloader")
 
+    data_path = '../data'
+
+
+    #for key in file_architecture:
+        #ile_architecture = os.listdir(os.path.join(data_path, key))
+
+    csv_path = os.path.join(data_path, 'satellite_data.csv')
+    df = pd.read_csv(csv_path)
+    list_folders = list(df.folder)
+    #file_architecture = dict.fromkeys()
+    #m.lower().endswith(('.png', '.jpg', '.jpeg'))
+    def mapping_function(x):
+        files = os.listdir(os.path.join(data_path, x))
+        png_files = [e for e in files if e.lower().endswith('.png')]
+        return png_files
+    df["images_list"] = df.folder.map(lambda x: mapping_function(x))
+    file = 'sentinel1_2017-07-01.png'
+    df["find_file"] = df.images_list.map(lambda x:  file in x)
+    folder = [df[df["find_file"]==True].folder.iloc[0]]
+
     args = parser.parse_args()
-    test_dataset, test_loader = launch(args)
+    test_dataset, test_loader = launch(args, folder=folder)
     print("done")
